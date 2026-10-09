@@ -483,32 +483,92 @@ namespace HROTAirTrust
             if (String.IsNullOrWhiteSpace(id))
                 id = Ask("HROT verification", "Registered device identity:");
             if (String.IsNullOrWhiteSpace(id)) return;
+
             try
             {
                 var challenge = Post("verify/challenge", new JObject { ["identity_id"] = id });
                 var transcript = Value(challenge, "transcript");
-                // External hardware signs the EXACT challenge transcript. No private key copied to GCS.
-                var signature = Ask("HROT — proof of key possession",
-                    "Device must sign this exact UTF-8 transcript (copy from below):", transcript);
-                if (signature == null) return;
-                // Input has to be the base64 signature, not the challenge transcript.
-                signature = Ask("HROT — submit signature",
-                    "Paste the device-generated Ed25519 signature (Base64):");
-                if (String.IsNullOrWhiteSpace(signature)) return;
-                var result = Post("verify/complete", new JObject {
-                    ["challenge_id"] = Value(challenge, "challenge_id"),
-                    ["signature"] = signature
-                });
-                bool accepted = Value(result, "verified").Equals("true",
-                    StringComparison.OrdinalIgnoreCase);
-                MessageBox.Show(Host.MainForm,
-                    (accepted ? "KEY POSSESSION VERIFIED" : "PROOF REJECTED") +
-                    "\r\nReason: " + Value(result, "reason") +
-                    "\r\nPhysical aircraft association: NOT PROVEN" +
-                    "\r\nHardware key protection / PUF origin: NOT PROVEN",
-                    "HROT cryptographic verification",
-                    MessageBoxButtons.OK,
-                    accepted ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                var challengeId = Value(challenge, "challenge_id");
+
+                using (var form = new Form {
+                    Text = "HROT — Ed25519 key-possession verification",
+                    StartPosition = FormStartPosition.CenterParent,
+                    Width = 640, Height = 430, MinimizeBox = false,
+                    MaximizeBox = false, FormBorderStyle = FormBorderStyle.FixedDialog })
+                {
+                    var layout = new TableLayoutPanel {
+                        Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5,
+                        Padding = new Padding(12) };
+                    layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 98));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 107));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                    layout.Controls.Add(new Label {
+                        Dock = DockStyle.Fill, Text = "Device " + id +
+                        "\r\nSign the exact UTF-8 transcript with the enrolled key. Challenge expires after 90 seconds."
+                    }, 0, 0);
+                    var transcriptBox = new TextBox {
+                        Dock = DockStyle.Fill, Multiline = true,
+                        ScrollBars = ScrollBars.Vertical, ReadOnly = true, Text = transcript };
+                    layout.Controls.Add(transcriptBox, 0, 1);
+                    var copy = Button("Copy challenge transcript", (s, e) => {
+                        Clipboard.SetText(transcript);
+                    });
+                    layout.Controls.Add(copy, 0, 2);
+                    var signatureBox = new TextBox {
+                        Dock = DockStyle.Fill, Multiline = true,
+                        ScrollBars = ScrollBars.Vertical,
+                        Text = "", WordWrap = false };
+                    signatureBox.Enter += (s, e) => {
+                        if (String.IsNullOrWhiteSpace(signatureBox.Text))
+                            signatureBox.Text = "";
+                    };
+                    var signaturePanel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 };
+                    signaturePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+                    signaturePanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                    signaturePanel.Controls.Add(new Label {
+                        Text = "Device-generated 64-byte Ed25519 signature (BASE64):",
+                        Dock = DockStyle.Fill
+                    }, 0, 0);
+                    signaturePanel.Controls.Add(signatureBox, 0, 1);
+                    layout.Controls.Add(signaturePanel, 0, 3);
+                    var bottom = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
+                    var verify = new Button { Text = "Verify signature", AutoSize = true };
+                    var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
+                    verify.Click += (s, e) => {
+                        if (String.IsNullOrWhiteSpace(signatureBox.Text))
+                        {
+                            MessageBox.Show(form, "Paste the signer-generated signature first.");
+                            return;
+                        }
+                        try
+                        {
+                            var result = Post("verify/complete", new JObject {
+                                ["challenge_id"] = challengeId,
+                                ["signature"] = signatureBox.Text.Trim()
+                            });
+                            bool accepted = Value(result, "verified").Equals("true",
+                                StringComparison.OrdinalIgnoreCase);
+                            MessageBox.Show(form,
+                                (accepted ? "ENROLLED KEY PROOF VERIFIED" : "PROOF REJECTED") +
+                                "\r\nReason: " + Value(result, "reason") +
+                                "\r\nPhysical aircraft binding: NOT PROVEN" +
+                                "\r\nHardware key protection: NOT ATTESTED",
+                                "HROT verification result", MessageBoxButtons.OK,
+                                accepted ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                            form.DialogResult = DialogResult.OK;
+                            form.Close();
+                        }
+                        catch (Exception ex) { MessageBox.Show(form, ex.Message, "Verification error"); }
+                    };
+                    bottom.Controls.Add(cancel);
+                    bottom.Controls.Add(verify);
+                    layout.Controls.Add(bottom, 0, 4);
+                    form.Controls.Add(layout);
+                    form.CancelButton = cancel;
+                    form.ShowDialog(Host.MainForm);
+                }
                 RefreshSnapshot();
             }
             catch (Exception ex) { Error(ex); }
