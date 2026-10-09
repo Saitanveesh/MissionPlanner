@@ -1,0 +1,26 @@
+name: HROT Native Mission Planner Build
+
+on:
+  push:
+    branches: [ "feat/hrot-airtrust-native" ]
+    paths:
+      - "plugins/HROT_AirTrust.cs"
+      - "Plugins/HROTAirTrust/**"
+      - ".github/workflows/hrot-airtrust.yml"
+  workflow_dispatch:
+
+jobs:
+  native-plugin:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore validation project
+        run: dotnet restore Plugins/HROTAirTrust/HROTNative.Plugin.csproj --verbosity quiet
+      - name: Compile native HROT plugin against real Mission Planner
+        run: dotnet build Plugins/HROTAirTrust/HROTNative.Plugin.csproj --configuration Release --no-restore --verbosity minimal
