@@ -403,7 +403,7 @@ namespace HROTAirTrust
                 Size = new Size(18, 18);
                 Offset = new Point(-9, -9);
             }
-            public override void OnRender(IGraphics graphics)
+            public override void OnRender(System.Drawing.IGraphics graphics)
             {
                 // Actual Mission Planner GMap overlay; no synthetic targets.
                 var x = LocalPosition.X - Offset.X;
