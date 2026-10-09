@@ -15,6 +15,11 @@
     <ProjectReference Include="..\..\ExtLibs\GMap.NET.Drawing\GMap.NET.Drawing.csproj" />
     <ProjectReference Include="..\..\ExtLibs\GMap.NET.WindowsForms\GMap.NET.WindowsForms.csproj" />
     <ProjectReference Include="..\..\ExtLibs\Utilities\MissionPlanner.Utilities.csproj" />
+    <ProjectReference Include="..\..\ExtLibs\MissionPlanner.Drawing\MissionPlanner.Drawing.csproj">
+      <Aliases>Drawing</Aliases>
+      <Private>false</Private>
+    </ProjectReference>
+    <Reference Include="System.Drawing" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>
