@@ -355,6 +355,8 @@ namespace HROTAirTrust
 
         private static bool Coordinate(JToken row, out double lat, out double lon)
         {
+            lat = 0;
+            lon = 0;
             return double.TryParse(Value(row, "lat"), NumberStyles.Float,
                        CultureInfo.InvariantCulture, out lat) &&
                    double.TryParse(Value(row, "lon"), NumberStyles.Float,
